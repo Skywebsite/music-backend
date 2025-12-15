@@ -13,7 +13,7 @@ export interface ISong extends Document {
 
 const songSchema = new Schema<ISong>(
   {
-    owner: { type: Types.ObjectId, ref: 'User', required: true },
+    owner: { type: Schema.Types.ObjectId, ref: 'User', required: true },
     title: { type: String, required: true, trim: true },
     category: { type: String, trim: true },
     audioUrl: { type: String, required: true },

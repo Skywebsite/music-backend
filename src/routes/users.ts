@@ -48,6 +48,7 @@ router.patch(
       if (typeof isPrivate === 'string') updates.isPrivate = isPrivate === 'true';
 
       if (req.file) {
+        const file = req.file as Express.Multer.File;
         const uploadResult = await new Promise<{ url: string; public_id: string }>((resolve, reject) => {
           const stream = cloudinary.uploader.upload_stream(
             {
@@ -60,7 +61,7 @@ router.patch(
             }
           );
 
-          stream.end(req.file.buffer);
+          stream.end(file.buffer);
         });
 
         updates.profileImage = {
@@ -198,7 +199,7 @@ router.get('/:userId/profile', authMiddleware, async (req: AuthRequest, res) => 
     canSeeUploads = false;
   }
 
-  let uploads;
+  let uploads: typeof Song[] | any[] = [];
   if (!canSeeUploads) {
     uploads = [];
   } else if (isSelf || isFriend) {

@@ -1,21 +1,25 @@
 import { Request, Response, NextFunction } from 'express';
-import jwt from 'jsonwebtoken';
+import jwt, { SignOptions, Secret } from 'jsonwebtoken';
 import { env } from '../config/env';
 
 export interface AuthRequest extends Request {
   userId?: string;
 }
 
+const accessTokenOptions: SignOptions = {
+  expiresIn: env.jwtExpiresIn as SignOptions['expiresIn'],
+};
+
+const refreshTokenOptions: SignOptions = {
+  expiresIn: env.refreshJwtExpiresIn as SignOptions['expiresIn'],
+};
+
 export function signAccessToken(userId: string) {
-  return jwt.sign({ sub: userId }, env.jwtSecret, {
-    expiresIn: env.jwtExpiresIn,
-  });
+  return jwt.sign({ sub: userId }, env.jwtSecret as Secret, accessTokenOptions);
 }
 
 export function signRefreshToken(userId: string) {
-  return jwt.sign({ sub: userId }, env.refreshJwtSecret, {
-    expiresIn: env.refreshJwtExpiresIn,
-  });
+  return jwt.sign({ sub: userId }, env.refreshJwtSecret as Secret, refreshTokenOptions);
 }
 
 export function authMiddleware(req: AuthRequest, res: Response, next: NextFunction) {
