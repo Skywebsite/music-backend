@@ -117,6 +117,139 @@ router.get('/mine', authMiddleware, async (req: AuthRequest, res) => {
   return res.json(songs);
 });
 
+// Update song (title, category, isPublic, cover)
+router.put(
+  '/:id',
+  authMiddleware,
+  upload.fields([{ name: 'cover', maxCount: 1 }]),
+  async (req: AuthRequest, res) => {
+    try {
+      const { id } = req.params;
+      const { title, category, isPublic } = req.body as {
+        title?: string;
+        category?: string;
+        isPublic?: string;
+      };
+
+      const song = await Song.findById(id);
+      if (!song) {
+        return res.status(404).json({ message: 'Song not found' });
+      }
+
+      // Check if user owns this song
+      if (song.owner.toString() !== req.userId) {
+        return res.status(403).json({ message: 'Not authorized' });
+      }
+
+      const files = req.files as {
+        [fieldname: string]: Express.Multer.File[];
+      };
+      const coverFile = files?.cover?.[0];
+
+      let coverUrl = song.coverUrl;
+      let coverPublicId = song.coverPublicId;
+
+      // If new cover is uploaded, replace old one
+      if (coverFile) {
+        const uploadToCloudinary = async (
+          file: Express.Multer.File,
+          folder: string,
+          resourceType: 'image' | 'video' | 'auto'
+        ) =>
+          new Promise<{
+            url: string;
+            public_id: string;
+          }>((resolve, reject) => {
+            const stream = cloudinary.uploader.upload_stream(
+              {
+                folder,
+                resource_type: resourceType,
+              },
+              (error, result) => {
+                if (error || !result) return reject(error);
+                resolve({ url: result.secure_url, public_id: result.public_id });
+              }
+            );
+            stream.end(file.buffer);
+          });
+
+        // Delete old cover from Cloudinary if exists
+        if (song.coverPublicId) {
+          try {
+            await cloudinary.uploader.destroy(song.coverPublicId);
+          } catch {
+            // ignore deletion errors
+          }
+        }
+
+        const coverUpload = await uploadToCloudinary(coverFile, 'audioly/covers', 'image');
+        coverUrl = coverUpload.url;
+        coverPublicId = coverUpload.public_id;
+      }
+
+      // Update song
+      const updateData: any = {};
+      if (title !== undefined) updateData.title = title;
+      if (category !== undefined) updateData.category = category;
+      if (isPublic !== undefined) {
+        updateData.isPublic = typeof isPublic === 'string' ? isPublic === 'true' : isPublic;
+      }
+      updateData.coverUrl = coverUrl;
+      updateData.coverPublicId = coverPublicId;
+
+      const updatedSong = await Song.findByIdAndUpdate(id, updateData, { new: true });
+      return res.json(updatedSong);
+    } catch (e) {
+      // eslint-disable-next-line no-console
+      console.error(e);
+      return res.status(500).json({ message: 'Internal server error' });
+    }
+  }
+);
+
+// Delete song
+router.delete('/:id', authMiddleware, async (req: AuthRequest, res) => {
+  try {
+    const { id } = req.params;
+
+    const song = await Song.findById(id);
+    if (!song) {
+      return res.status(404).json({ message: 'Song not found' });
+    }
+
+    // Check if user owns this song
+    if (song.owner.toString() !== req.userId) {
+      return res.status(403).json({ message: 'Not authorized' });
+    }
+
+    // Delete files from Cloudinary
+    try {
+      if (song.audioPublicId) {
+        await cloudinary.uploader.destroy(song.audioPublicId, { resource_type: 'video' });
+      }
+      if (song.coverPublicId) {
+        await cloudinary.uploader.destroy(song.coverPublicId);
+      }
+    } catch {
+      // ignore deletion errors
+    }
+
+    // Remove from user's uploadedSongs
+    await User.findByIdAndUpdate(req.userId, {
+      $pull: { uploadedSongs: id },
+    });
+
+    // Delete song from database
+    await Song.findByIdAndDelete(id);
+
+    return res.json({ message: 'Song deleted successfully' });
+  } catch (e) {
+    // eslint-disable-next-line no-console
+    console.error(e);
+    return res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
 export default router;
 
 

@@ -36,9 +36,11 @@ async function bootstrap() {
   // eslint-disable-next-line @typescript-eslint/no-var-requires
   app.use('/songs', require('./routes/songs').default);
 
-  app.listen(env.port, () => {
+  app.listen(env.port, '0.0.0.0', () => {
     // eslint-disable-next-line no-console
-    console.log(`Server listening on http://localhost:${env.port}`);
+    console.log(`Server listening on http://0.0.0.0:${env.port}`);
+    // eslint-disable-next-line no-console
+    console.log(`Access from network: http://<your-local-ip>:${env.port}`);
   });
 }
 
