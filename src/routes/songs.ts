@@ -121,7 +121,13 @@ router.get('/mine', authMiddleware, async (req: AuthRequest, res) => {
 router.put(
   '/:id',
   authMiddleware,
-  upload.fields([{ name: 'cover', maxCount: 1 }]),
+  (req, res, next) => {
+    // Only use multer if content-type is multipart/form-data
+    if (req.headers['content-type']?.includes('multipart/form-data')) {
+      return upload.fields([{ name: 'cover', maxCount: 1 }])(req, res, next);
+    }
+    return next();
+  },
   async (req: AuthRequest, res) => {
     try {
       const { id } = req.params;
