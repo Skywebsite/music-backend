@@ -94,11 +94,6 @@ router.post(
   }
 );
 
-// Test route for debugging
-router.get('/test-delete-route', (_req, res) => {
-  return res.json({ message: 'DELETE route should be at /:id' });
-});
-
 // Explore: all public songs
 router.get('/explore', async (_req, res) => {
   const songs = await Song.find({ isPublic: true }).populate('owner', 'name');
